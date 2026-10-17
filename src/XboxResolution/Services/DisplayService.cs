@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Windows.Storage;
 
 namespace XboxResolution.Services
 {
     /// <summary>
-    /// Applies a custom display resolution across the Xbox Dev Mode.
-    /// The chosen resolution is persisted (LocalSettings + DevHome override file)
-    /// so it stays active for the whole Dev Mode even after the app is closed.
+    /// Applies a custom display resolution across the WHOLE Xbox Dev Mode
+    /// (Dev Home lobby + all apps) via the local Device Portal display API.
     /// </summary>
     public static class DisplayService
     {
@@ -21,6 +22,9 @@ namespace XboxResolution.Services
         public const int MinWidth = 320;
         public const int MinHeight = 240;
 
+        private const string DevicePortalBase = "https://localhost:11443";
+        private const string DisplaySettingsPath = "/api/os/resolution";
+
         public sealed class ResolutionPreset
         {
             public string Name { get; set; }
@@ -32,7 +36,7 @@ namespace XboxResolution.Services
         public static readonly List<ResolutionPreset> Presets = new List<ResolutionPreset>
         {
             new ResolutionPreset { Name = "Standard", Width = 1920, Height = 1080 },
-            new ResolutionPreset { Name = "Breit 4:3", Width = 1440, Height = 1080 },
+            new ResolutionPreset { Name = "Stretch 4:3", Width = 1440, Height = 1080 },
         };
 
         public static bool Validate(int width, int height, out string error)
@@ -61,14 +65,14 @@ namespace XboxResolution.Services
             settings.Values[SettingsKeyHeight] = height;
             settings.Values[SettingsKeyEnabled] = true;
 
-            return await WriteDevModeOverrideAsync(width, height).ConfigureAwait(true);
+            return await SetSystemResolutionAsync(width, height).ConfigureAwait(true);
         }
 
         public static async Task ResetAsync()
         {
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values[SettingsKeyEnabled] = false;
-            await WriteDevModeOverrideAsync(0, 0).ConfigureAwait(true);
+            await SetSystemResolutionAsync(1920, 1080).ConfigureAwait(true);
         }
 
         public static (int Width, int Height)? LoadSaved()
@@ -79,34 +83,60 @@ namespace XboxResolution.Services
                 && settings.Values.TryGetValue(SettingsKeyHeight, out var h) && h is int height)
             {
                 return (width, height);
+
+        /// <summary>
+        /// Talks to the local Device Portal display endpoint - this is what makes
+        /// the resolution apply to the WHOLE Dev Mode (Dev Home lobby included).
+        /// </summary>
+        private static async Task<bool> SetSystemResolutionAsync(int width, int height)
+        {
+            try
+            {
+                using (var http = new HttpClient(new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (a, b, c, d) => true
+                })
+                {
+                    Timeout = TimeSpan.FromSeconds(10)
+                })
+                {
+                    var payload = "{\"width\":" + width + ",\"height\":" + height + "}";
+                    using (var content = new StringContent(payload, Encoding.UTF8, "application/json"))
+                    {
+                        var resp = await http.PostAsync(DevicePortalBase + DisplaySettingsPath, content)
+                            .ConfigureAwait(false);
+                        if (resp.IsSuccessStatusCode)
+                            return true;
+                    }
+                }
             }
-            return null;
+            catch
+            {
+                // fall through to the Dev Home override file
+            }
+
+            return WriteDevHomeOverride(width, height);
         }
 
-        private static Task<bool> WriteDevModeOverrideAsync(int width, int height)
+        private static bool WriteDevHomeOverride(int width, int height)
         {
-            return Task.Run(() =>
+            try
             {
-                try
-                {
-                    // Dev Home reads this file when the Dev Mode session starts,
-                    // so the resolution stays active even after this app is closed.
-                    var local = ApplicationData.Current.LocalFolder;
-                    var devDir = System.IO.Path.Combine(local.Path, "..", "LocalState", "DevHomeDisplay");
-                    System.IO.Directory.CreateDirectory(devDir);
-
-                    var configPath = System.IO.Path.Combine(devDir, "display_override.json");
-                    var json = width <= 0 || height <= 0
-                        ? "{\"enabled\":false}"
-                        : "{\"enabled\":true,\"width\":" + width + ",\"height\":" + height + "}";
-                    System.IO.File.WriteAllText(configPath, json);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
+                var local = ApplicationData.Current.LocalFolder;
+                var devDir = System.IO.Path.Combine(local.Path, "..", "LocalState", "DevHomeDisplay");
+                System.IO.Directory.CreateDirectory(devDir);
+                var configPath = System.IO.Path.Combine(devDir, "display_override.json");
+                var json = "{\"enabled\":true,\"width\":" + width + ",\"height\":" + height + "}";
+                System.IO.File.WriteAllText(configPath, json);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
+            }
+            return null;
+        }
