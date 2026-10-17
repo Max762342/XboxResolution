@@ -1,0 +1,91 @@
+name: Build XboxResolution UWP (Xbox)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-uwp:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v2
+
+    - name: Create Certificate
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path output | Out-Null
+        $certPwd = ConvertTo-SecureString -String "xboxresolution" -Force -AsPlainText
+        $cert = New-SelfSignedCertificate `
+          -Type Custom `
+          -Subject "CN=XboxResolution" `
+          -KeyUsage DigitalSignature `
+          -KeyAlgorithm RSA `
+          -KeyLength 2048 `
+          -KeySpec Signature `
+          -KeyExportPolicy Exportable `
+          -FriendlyName "XboxResolution Dev Cert" `
+          -CertStoreLocation "Cert:\CurrentUser\My" `
+          -TextExtension @("2.5.29.19={text}ca=false", "2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.14={hex}00")
+        Export-PfxCertificate -Cert $cert -FilePath output/XboxResolution.pfx -Password $certPwd | Out-Null
+        Write-Host "Cert thumbprint: $($cert.Thumbprint)"
+
+    - name: Restore + Build + Package UWP (Release x64, signed)
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Continue"
+        New-Item -ItemType Directory -Force -Path output | Out-Null
+        $pfx = (Resolve-Path output/XboxResolution.pfx).Path
+        Write-Host "PFX: $pfx"
+        msbuild src/XboxResolution/XboxResolution.csproj `
+          /t:Restore,Build `
+          /p:Configuration=Release /p:Platform=x64 `
+          /p:AppxBundle=Never `
+          /p:UapAppxPackageBuildMode=SideloadOnly `
+          /p:AppxPackageSigningEnabled=true `
+          /p:PackageCertificateKeyFile=$pfx `
+          /p:PackageCertificatePassword=xboxresolution `
+          /p:AppxPackageSigningTimestampDigestAlgorithm=SHA256 `
+          /restore /m /v:m /bl:output/uwp.binlog 2>&1 | Tee-Object -FilePath output/uwp-build.log
+        $code = $LASTEXITCODE
+        if ($code -ne 0) {
+          $tail = Get-Content output/uwp-build.log -Tail 100 -ErrorAction SilentlyContinue
+          $tail | ForEach-Object { Write-Host $_ }
+          throw "UWP build failed (exit $code)."
+        }
+
+    - name: Locate built app package
+      id: find
+      shell: pwsh
+      run: |
+        $pkg = Get-ChildItem "src/XboxResolution/AppPackages" -Recurse -Include *.msix,*.appx -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -like 'XboxResolution_*' } |
+               Sort-Object Length -Descending |
+               Select-Object -First 1
+        if (-not $pkg) {
+          $pkg = Get-ChildItem "src/XboxResolution" -Recurse -Include *.msix,*.appx -ErrorAction SilentlyContinue |
+                 Where-Object { $_.Name -like 'XboxResolution_*' } |
+                 Sort-Object Length -Descending |
+                 Select-Object -First 1
+        }
+        if (-not $pkg) { throw "No app package (XboxResolution_*.msix/.appx) produced by the UWP build." }
+        Write-Host "Found app package: $($pkg.FullName) ($([math]::Round($pkg.Length/1MB,1)) MB)"
+        New-Item -ItemType Directory -Force -Path output | Out-Null
+        Copy-Item $pkg.FullName "output/XboxResolution.appx" -Force
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: XboxResolution-Xbox
+        path: |
+          output/XboxResolution.appx
+          output/XboxResolution.pfx
+        retention-days: 90

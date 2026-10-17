@@ -1,0 +1,81 @@
+<Page
+    x:Class="XboxResolution.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="#FF0A0E14">
+
+    <Grid Padding="48">
+        <StackPanel MaxWidth="720" HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <TextBlock Text="Xbox Resolution" FontSize="40" FontWeight="Bold" Foreground="#FFF9FAFB"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Custom Display-Auflösung für den Xbox Dev Mode"
+                       FontSize="15" Foreground="#FF9CA3AF" HorizontalAlignment="Center"
+                       Margin="0,8,0,32" />
+
+            <!-- Presets -->
+            <Border Background="#33FFFFFF" BorderBrush="#44FFFFFF" BorderThickness="1"
+                    CornerRadius="16" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="Vorlagen" FontSize="18" FontWeight="SemiBold" Foreground="#FFF9FAFB"
+                               Margin="0,0,0,12" />
+                    <Button x:Name="BtnStandard" Content="1920 × 1080  —  Standard"
+                            HorizontalAlignment="Stretch" Margin="0,0,0,8"
+                            Padding="20,14" FontSize="16" Click="BtnStandard_Click" />
+                    <Button x:Name="Btn1440" Content="1440 × 1080"
+                            HorizontalAlignment="Stretch" Margin="0,0,0,8"
+                            Padding="20,14" FontSize="16" Click="Btn1440_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- Custom -->
+            <Border Background="#33FFFFFF" BorderBrush="#44FFFFFF" BorderThickness="1"
+                    CornerRadius="16" Padding="24" Margin="0,20,0,0">
+                <StackPanel>
+                    <TextBlock Text="Eigene Auflösung" FontSize="18" FontWeight="SemiBold"
+                               Foreground="#FFF9FAFB" Margin="0,0,0,4" />
+                    <TextBlock Text="Maximal 1920 × 1080. Alles darunter ist erlaubt."
+                               FontSize="13" Foreground="#FF9CA3AF" Margin="0,0,0,12" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Breite (px)" FontSize="12" Foreground="#FF9CA3AF" Margin="0,0,0,4" />
+                            <TextBox x:Name="WidthBox" Text="1920" FontSize="18" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="×" FontSize="24" Foreground="#FF9CA3AF"
+                                   VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="12,0,12,10" />
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Höhe (px)" FontSize="12" Foreground="#FF9CA3AF" Margin="0,0,0,4" />
+                            <TextBox x:Name="HeightBox" Text="1080" FontSize="18" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Content="Anwenden" HorizontalAlignment="Stretch" Margin="0,16,0,0"
+                            Padding="20,14" FontSize="16" Click="BtnApplyCustom_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- Status -->
+            <Border Background="#2210B981" CornerRadius="12" Padding="16" Margin="0,20,0,0">
+                <TextBlock x:Name="StatusText" Text="Bereit. Wähle eine Auflösung."
+                           FontSize="14" Foreground="#FF10B981" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Reset -->
+            <Button Content="Auf Standard zurücksetzen" HorizontalAlignment="Center"
+                    Margin="0,20,0,0" Padding="20,12" Click="BtnReset_Click" />
+
+            <TextBlock Text="Die Auflösung wird für den gesamten Xbox Dev Mode gesetzt und bleibt aktiv, auch wenn diese App geschlossen wird."
+                       FontSize="12" Foreground="#FF9CA3AF" TextWrapping="Wrap"
+                       HorizontalAlignment="Center" Margin="0,24,0,0" MaxWidth="520" />
+        </StackPanel>
+    </Grid>
+</Page>
