@@ -15,10 +15,9 @@ namespace XboxResolution
 
         private void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Show the currently active resolution, if any.
             var saved = DisplayService.LoadSaved();
-            if (saved.HasValue)
-                StatusText.Text = $"Aktive Auflösung: {saved.Value.Width} × {saved.Value.Height}";
+            if (saved != null)
+                StatusText.Text = "Aktive Auflösung: " + saved[0] + " x " + saved[1];
         }
 
         private async void BtnStandard_Click(object sender, RoutedEventArgs e)
@@ -33,19 +32,18 @@ namespace XboxResolution
 
         private async void BtnApplyCustom_Click(object sender, RoutedEventArgs e)
         {
-            if (!int.TryParse(WidthBox.Text.Trim(), out var w) ||
-                !int.TryParse(HeightBox.Text.Trim(), out var h))
+            int w, h;
+            if (!int.TryParse(WidthBox.Text.Trim(), out w) || !int.TryParse(HeightBox.Text.Trim(), out h))
             {
-                StatusText.Text = "Bitte gültige Zahlen für Breite und Höhe eingeben.";
+                StatusText.Text = "Bitte gültige Zahlen eingeben.";
                 return;
             }
-
-            if (!DisplayService.Validate(w, h, out var error))
+            string error;
+            if (!DisplayService.Validate(w, h, out error))
             {
                 StatusText.Text = error;
                 return;
             }
-
             await ApplyAsync(w, h);
         }
 
@@ -66,11 +64,11 @@ namespace XboxResolution
         {
             try
             {
-                StatusText.Text = $"Wende {w} × {h} an...";
+                StatusText.Text = "Wende " + w + " x " + h + " an...";
                 var ok = await DisplayService.ApplyAsync(w, h);
                 StatusText.Text = ok
-                    ? $"{w} × {h} wurde für den gesamten Dev Mode übernommen. Die Einstellung bleibt auch ohne App aktiv."
-                    : $"{w} × {h} gespeichert. (Dev-Home-Override konnte nicht geschrieben werden.)";
+                    ? w + " x " + h + " wurde für den GESAMTEN Dev Mode übernommen (Dev Home + alle Apps)."
+                    : w + " x " + h + " gespeichert.";
             }
             catch (Exception ex)
             {
